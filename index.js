@@ -28,7 +28,7 @@ server.post('/api/register', async (req, res, next) => {
   }
 });
 
-server.post('/api/login', restricted, async (req, res, next) => {
+server.post('/api/login', checkCredentialsInBody, async (req, res, next) => {
   try {
     const user = req.user;
     res.json({ message: `Welcome back, ${user.username}` });
@@ -58,7 +58,7 @@ server.get('/api/restricted/users', async (req, res, next) => {
 });
 
 
-async function restricted(req, res, next) {
+async function checkCredentialsInBody(req, res, next) {
   try {
     const { username, password } = req.body;
     const user = await Users.findBy({ username }).first();
@@ -67,6 +67,25 @@ async function restricted(req, res, next) {
     } else {
       req.user = user;
       next();
+    }
+  } catch (error) {
+    next(new Error(error.message));
+  }
+};
+
+async function restricted(req, res, next) {
+  try {
+    const { username, password } = req.headers;
+    if (username && password) {
+      const user = await Users.findBy({ username }).first();
+      if (!user || !bcrypt.compareSync(password, user.password)) {
+        res.status(401).json({ message: 'Incorrect credentials' });
+      } else {
+        req.user = user;
+        next();
+      }
+    } else {
+      res.status(401).json({ message: 'You are not identified'});
     }
   } catch (error) {
     next(new Error(error.message));
