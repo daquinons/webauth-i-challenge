@@ -6,4 +6,8 @@ exports.create = user => {
 
 exports.findBy = filter => {
   return db('users').where(filter);
-}
+};
+
+exports.find = () => {
+  return db('users');
+};

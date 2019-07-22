@@ -37,6 +37,15 @@ server.post('/api/login', restricted, async (req, res, next) => {
   }
 });
 
+server.get('/api/users', restricted, async (req, res, next) => {
+  try {
+    const users = await Users.find();
+    res.json(users);
+  } catch (error) {
+    next(new Error(error.message));
+  }
+});
+
 async function restricted(req, res, next) {
   try {
     const { username, password } = req.body;
