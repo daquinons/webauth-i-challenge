@@ -28,19 +28,33 @@ server.post('/api/register', async (req, res, next) => {
   }
 });
 
-server.post('/api/login', async (req, res, next) => {
-  const { username, password } = req.body;
+server.post('/api/login', restricted, async (req, res, next) => {
   try {
-    const user = await Users.findBy({ username }).first();
-    if (!user || !bcrypt.compareSync(password, user.password)) {
+    const user = req.user;
+    if (!user) {
       res.status(401).json({ message: 'Incorrect credentials' });
     } else {
-      res.json({ message: `Welcome back, ${username}` });
+      res.json({ message: `Welcome back, ${user.username}` });
     }
   } catch (error) {
     next(new Error(error.message));
   }
 });
+
+async function restricted(req, res, next) {
+  try {
+    const { username, password } = req.body;
+    const user = await Users.findBy({ username }).first();
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      res.status(401).json({ message: 'Incorrect credentials' });
+    } else {
+      req.user = user;
+      next();
+    }
+  } catch (error) {
+    next(new Error(error.message));
+  }
+};
 
 const port = process.env.PORT || 3000;
 server.listen(port, () => console.log(`\n** Running on port ${port} **\n`));
