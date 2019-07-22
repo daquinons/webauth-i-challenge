@@ -31,11 +31,7 @@ server.post('/api/register', async (req, res, next) => {
 server.post('/api/login', restricted, async (req, res, next) => {
   try {
     const user = req.user;
-    if (!user) {
-      res.status(401).json({ message: 'Incorrect credentials' });
-    } else {
-      res.json({ message: `Welcome back, ${user.username}` });
-    }
+    res.json({ message: `Welcome back, ${user.username}` });
   } catch (error) {
     next(new Error(error.message));
   }
