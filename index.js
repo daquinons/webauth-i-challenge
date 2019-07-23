@@ -2,11 +2,15 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const session = require('express-session');
+const KnexSessionStore = require('connect-session-knex')(session);
 const bcrypt = require('bcryptjs');
-const md5 = require('md5');
 const Users = require('./users/model');
 
 const server = express();
+const store = new KnexSessionStore({
+  knex: require('./data/config'),
+  createTable: true
+});
 
 server.use(helmet());
 server.use(cors());
@@ -17,7 +21,8 @@ server.use(session({
   saveUninitialized: false,
   cookie: {
     maxAge: 1000 * 60 * 60 * 60
-  }
+  },
+  store: store
 }))
 
 server.get('/', (req, res) => {
