@@ -1,33 +1,33 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const session = require('express-session');
+const KnexSessionStore = require('connect-session-knex')(session);
 const bcrypt = require('bcryptjs');
-const md5 = require('md5');
 const Users = require('./users/model');
 
 const server = express();
+const store = new KnexSessionStore({
+  knex: require('./data/config'),
+  createTable: true
+});
 
 server.use(helmet());
 server.use(cors());
 server.use(express.json());
+server.use(session({
+  secret: 'this is eggselent',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 60
+  },
+  store: store
+}))
 
 server.get('/', (req, res) => {
   res.send("It's alive!");
 });
-
-const dummyBcrypt = {
-  hashSync: function(password, iterations = 10) {
-    let hashedPassword = password;
-    for (let i = 0; i < iterations; i++) {
-      hashedPassword = md5(hashedPassword);
-    }
-
-    return hashedPassword;
-  },
-  compareSync: function(password, hashToCompare, iterations = 10) {
-    return this.hashSync(password, iterations) === hashToCompare;
-  }
-};
 
 server.post('/api/register', async (req, res, next) => {
   const { username, password } = req.body;
@@ -43,25 +43,21 @@ server.post('/api/register', async (req, res, next) => {
   }
 });
 
-server.post('/api/register-dummy', async (req, res, next) => {
-  const { username, password } = req.body;
-  const hashedPassword = dummyBcrypt.hashSync(password, 14);
+server.post('/api/login', checkCredentialsInBody, async (req, res, next) => {
   try {
-    res.json({
-      username,
-      password: hashedPassword
-    });
+    const user = req.session.user;
+    res.json({ message: `Welcome back, ${user.username}` });
   } catch (error) {
     next(new Error(error.message));
   }
 });
 
-server.post('/api/login', checkCredentialsInBody, async (req, res, next) => {
-  try {
-    const user = req.user;
-    res.json({ message: `Welcome back, ${user.username}` });
-  } catch (error) {
-    next(new Error(error.message));
+server.get('/api/logout', restricted, async (req, res, next) => {
+  if (req.session) {
+    req.session.destroy();
+    res.json({ message: 'You are successfully logged out' });
+  } else {
+    res.end();
   }
 });
 
@@ -92,7 +88,7 @@ async function checkCredentialsInBody(req, res, next) {
     if (!user || !bcrypt.compareSync(password, user.password)) {
       res.status(401).json({ message: 'Incorrect credentials' });
     } else {
-      req.user = user;
+      req.session.user = user;
       next();
     }
   } catch (error) {
@@ -101,21 +97,10 @@ async function checkCredentialsInBody(req, res, next) {
 }
 
 async function restricted(req, res, next) {
-  try {
-    const { username, password } = req.headers;
-    if (username && password) {
-      const user = await Users.findBy({ username }).first();
-      if (!user || !bcrypt.compareSync(password, user.password)) {
-        res.status(401).json({ message: 'Incorrect credentials' });
-      } else {
-        req.user = user;
-        next();
-      }
-    } else {
-      res.status(401).json({ message: 'You are not identified' });
-    }
-  } catch (error) {
-    next(new Error(error.message));
+  if (req.session && req.session.user) {
+    next();
+  } else {
+    res.status(400).json({ message: 'No credentials provided' });
   }
 }
 
